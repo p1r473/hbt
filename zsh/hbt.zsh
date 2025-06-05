@@ -33,8 +33,14 @@ fi
 function _hbt_end_session() { echo -n "end\n$$" | nc localhost $HBT_PORT ; }
 add-zsh-hook zshexit _hbt_end_session
 
-function _hbt_track () { echo -n "track\n$$\n$(pwd)\n$1" | nc localhost $HBT_PORT ; }
-add-zsh-hook preexec _hbt_track
+function _hbt_track() {
+	# Execute original command but only track it if it was successful
+	local -i code=$?
+	if [ $code -eq 0 ]; then
+		echo -n "track\n$$\n$(pwd)\n$1" | nc localhost $HBT_PORT ;
+	fi
+}
+add-zsh-hook precmd _hbt_track
 
 # list dir with TAB, when there are only spaces/no text before cursor,
 # or complete words, that are before cursor only (like in tcsh)
