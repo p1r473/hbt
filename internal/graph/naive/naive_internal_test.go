@@ -1,4 +1,4 @@
-//nolint:goconst // Prefer readability.
+// nolint // En route to deprecation anyways.
 package naive
 
 import (
@@ -33,21 +33,21 @@ func testNaiveNode(t *testing.T) {
 	assert.Equal(t, cmd2, n.getBestCommand())
 	e := n.getSortedEdges()
 	assert.Len(t, e, 3)
-	assert.EqualValues(t, cmd2, e[0].cmd)
-	assert.EqualValues(t, cmd1, e[1].cmd)
-	assert.EqualValues(t, cmd3, e[2].cmd)
+	assert.Equal(t, cmd2, e[0].cmd)
+	assert.Equal(t, cmd1, e[1].cmd)
+	assert.Equal(t, cmd3, e[2].cmd)
 }
 
 func testNaiveTrack(t *testing.T) {
 	g := NewGraph(10, 3)
-	id := "1"
+	id := 1
 	wd := "d1"
 	cmd1 := "c1"
-	g.Track(id, wd, cmd1)
+	g.Track(t.Context(), id, wd, cmd1)
 	assert.Len(t, g.Nodes, 1)
 	assert.Contains(t, g.Nodes, wd)
 	assert.Contains(t, g.Nodes[wd].edges, cmd1)
-	assert.Equal(t, g.Nodes[wd].edges[cmd1].Hits, 1)
+	assert.Equal(t, 1, g.Nodes[wd].edges[cmd1].Hits)
 	assert.Equal(t, g.Nodes[wd].edges[cmd1].From, g.Nodes[wd])
 	assert.Nil(t, g.Nodes[wd].edges[cmd1].To)
 
@@ -58,17 +58,17 @@ func testNaiveTrack(t *testing.T) {
 	assert.Equal(t, g.walkers[id][0].lastNode, g.Nodes[wd])
 
 	cmd2 := "c2"
-	g.Track(id, wd, cmd2)
+	g.Track(t.Context(), id, wd, cmd2)
 	assert.Len(t, g.Nodes, 1)
 	assert.Contains(t, g.Nodes, wd)
 	assert.Contains(t, g.Nodes[wd].edges, cmd1)
 	assert.Contains(t, g.Nodes[wd].edges, cmd2)
-	assert.Equal(t, g.Nodes[wd].edges[cmd1].Hits, 1)
+	assert.Equal(t, 1, g.Nodes[wd].edges[cmd1].Hits)
 	assert.Equal(t, g.Nodes[wd].edges[cmd1].From, g.Nodes[wd])
 	// Now this has been updated
 	assert.Equal(t, g.Nodes[wd].edges[cmd1].To, g.Nodes[wd])
 
-	assert.Equal(t, g.Nodes[wd].edges[cmd2].Hits, 1)
+	assert.Equal(t, 1, g.Nodes[wd].edges[cmd2].Hits)
 	assert.Equal(t, g.Nodes[wd].edges[cmd2].From, g.Nodes[wd])
 	assert.Nil(t, g.Nodes[wd].edges[cmd2].To)
 
@@ -78,11 +78,11 @@ func testNaiveTrack(t *testing.T) {
 	assert.Len(t, g.walkers[id], 2)
 
 	// Run to only increment Hits on graph
-	g.Track(id, wd, cmd2)
+	g.Track(t.Context(), id, wd, cmd2)
 	assert.Len(t, g.Nodes, 1)
-	assert.Equal(t, g.Nodes[wd].edges[cmd1].Hits, 1)
+	assert.Equal(t, 1, g.Nodes[wd].edges[cmd1].Hits)
 	// Should increase the count
-	assert.Equal(t, g.Nodes[wd].edges[cmd2].Hits, 2)
+	assert.Equal(t, 2, g.Nodes[wd].edges[cmd2].Hits)
 
 	assert.Len(t, g.walkers[id], 3)
 	assert.Equal(t, g.walkers[id][0], g.walkers[id][1])
@@ -95,89 +95,95 @@ func testNaiveHint(t *testing.T) {
 
 func testNaiveHintBasic(t *testing.T) {
 	g := NewGraph(10, 3)
-	id := "1"
+	id := 1
 	wd1 := "d1"
-	got := g.Hint(id, wd1)
-	assert.Equal(t, shrug, got, "no matching node, no tracking info")
+	got, _ := g.Hint(t.Context(), id, wd1)
+	assert.Empty(t, got, "no matching node, no tracking info")
 
-	got = g.Hint(id, "d1/d2/d3/d4") // shold be longer than minCommonPath
-	assert.Equal(t, shrug, got, "no matching node, no tracking info, long path")
+	got, _ = g.Hint(t.Context(), id, "d1/d2/d3/d4") // shold be longer than minCommonPath
+	assert.Empty(t, got, "no matching node, no tracking info, long path")
 
 	cmd1 := "c1"
-	g.Track(id, wd1, cmd1)
-	got = g.Hint(id, wd1)
+	g.Track(t.Context(), id, wd1, cmd1)
+	got, _ = g.Hint(t.Context(), id, wd1)
 	assert.Equal(t, cmd1, got, "single matching node")
 
-	id2 := "2"
-	got = g.Hint(id2, wd1)
+	id2 := 2
+	got, _ = g.Hint(t.Context(), id2, wd1)
 	assert.Equal(t, cmd1, got, "single matching node, for another provider")
 
 	wd2 := "d2"
-	got = g.Hint(id, wd2)
-	assert.Equal(t, shrug, got, "no matching node, tracking info")
+	got, _ = g.Hint(t.Context(), id, wd2)
+	assert.Empty(t, got, "no matching node, tracking info")
 
 	cmd2 := "c2"
-	g.Track(id, wd1, cmd2)
-	got = g.Hint(id, wd1)
+	g.Track(t.Context(), id, wd1, cmd2)
+	got, _ = g.Hint(t.Context(), id, wd1)
 	assert.Contains(t, []string{cmd1, cmd2}, got, "two commands, same hits, random result")
 
-	g.Track(id, wd1, cmd2)
-	got = g.Hint(id, wd1)
+	g.Track(t.Context(), id, wd1, cmd2)
+	got, _ = g.Hint(t.Context(), id, wd1)
 	assert.Equal(t, cmd2, got, "two commands, cmd2 greater hits")
-	got = g.Hint(id, wd1)
+	got, _ = g.Hint(t.Context(), id, wd1)
 	assert.Equal(t, cmd1, got, "two commands, cmd2 greater hits, cycle hints 1")
-	got = g.Hint(id, wd1)
+	got, _ = g.Hint(t.Context(), id, wd1)
 	assert.Equal(t, cmd2, got, "two commands, cmd2 greater hits, cycle hints 2")
 }
 
 func testNaiveHintBreakdown(t *testing.T) {
 	g := NewGraph(10, 3)
-	id := "1"
+	id := 1
 	wd1 := "/foo/bar/baz"
 	cmd1 := "binary arg1 arg2 --flag1 flag1value -t"
-	g.Track(id, wd1, cmd1)
-	got := g.Hint(id, wd1)
+	g.Track(t.Context(), id, wd1, cmd1)
+	got, _ := g.Hint(t.Context(), id, wd1)
 	assert.Equal(t, cmd1, got, "same dir match")
 
 	wd2 := "/another/foo/bar/baz"
-	got = g.Hint(id, wd2)
+	got, _ = g.Hint(t.Context(), id, wd2)
 	assert.Equal(t, cmd1, got, "different dir match")
 }
 
 func testNaiveSave(t *testing.T) {
 	runs := map[string]func(g *Graph){
 		"simple": func(g *Graph) {
-			g.Track("1", "dir1", "cmd1")
+			g.Track(t.Context(), 1, "dir1", "cmd1")
 		},
 		"cyclic_single": func(g *Graph) {
-			g.Track("1", "dir1", "cmd1")
-			g.Track("1", "dir1", "cmd2")
+			g.Track(t.Context(), 1, "dir1", "cmd1")
+			g.Track(t.Context(), 1, "dir1", "cmd2")
 		},
 		"cyclic_multi": func(g *Graph) {
-			g.Track("1", "dir1", "cmd1")
-			g.Track("1", "dir2", "cmd2")
-			g.Track("1", "dir1", "cmd3")
+			g.Track(t.Context(), 1, "dir1", "cmd1")
+			g.Track(t.Context(), 1, "dir2", "cmd2")
+			g.Track(t.Context(), 1, "dir1", "cmd3")
 		},
 	}
 	for name, setup := range runs {
 		t.Run(name, func(t *testing.T) {
 			g := NewGraph(10, 3)
 			setup(g)
+
 			base := path.Join("testdata", name)
 			actualFile := base + "_actual.json"
-			err := g.Save(actualFile)
+			err := g.Save(t.Context(), actualFile)
 			assert.NoError(t, err)
 			be, err := os.ReadFile(base + ".json")
 			require.NoError(t, err)
-			var expected map[string]interface{}
+
+			var expected map[string]any
+
 			err = json.Unmarshal(be, &expected)
 			require.NoError(t, err)
 			ba, err := os.ReadFile(actualFile)
 			require.NoError(t, err)
-			var actual map[string]interface{}
+
+			var actual map[string]any
+
 			err = json.Unmarshal(ba, &actual)
 			require.NoError(t, err)
-			if assert.EqualValues(t, expected, actual) {
+
+			if assert.Equal(t, expected, actual) {
 				err = os.Remove(actualFile)
 				require.NoError(t, err)
 			}
@@ -188,16 +194,16 @@ func testNaiveSave(t *testing.T) {
 func testNaiveLoad(t *testing.T) {
 	runs := map[string]func(g *Graph){
 		"simple": func(g *Graph) {
-			g.Track("1", "dir1", "cmd1")
+			g.Track(t.Context(), 1, "dir1", "cmd1")
 		},
 		"cyclic_single": func(g *Graph) {
-			g.Track("1", "dir1", "cmd1")
-			g.Track("1", "dir1", "cmd2")
+			g.Track(t.Context(), 1, "dir1", "cmd1")
+			g.Track(t.Context(), 1, "dir1", "cmd2")
 		},
 		"cyclic_multi": func(g *Graph) {
-			g.Track("1", "dir1", "cmd1")
-			g.Track("1", "dir2", "cmd2")
-			g.Track("1", "dir1", "cmd3")
+			g.Track(t.Context(), 1, "dir1", "cmd1")
+			g.Track(t.Context(), 1, "dir2", "cmd2")
+			g.Track(t.Context(), 1, "dir1", "cmd3")
 		},
 	}
 	for name, setup := range runs {
@@ -212,22 +218,28 @@ func testNaiveLoad(t *testing.T) {
 			for id := range expected.suggestionState {
 				delete(expected.suggestionState, id)
 			}
+
 			actual := NewGraph(10, 3)
-			err := actual.Load(path.Join("testdata", name+".json"))
+			err := actual.Load(t.Context(), path.Join("testdata", name+".json"))
 			assert.NoError(t, err)
-			assert.EqualValues(t, expected, actual)
+			assert.Equal(t, expected, actual)
 		})
 	}
 }
 
 func testNaiveDelete(t *testing.T) {
 	g := NewGraph(10, 3)
-	g.Track("123", "abc", "def")
-	assert.EqualValues(t, "def", g.Hint("123", "abc"))
-	g.Delete("123", "xxx", "def")
-	assert.EqualValues(t, "def", g.Hint("123", "abc"))
-	g.Delete("123", "abc", "xxx")
-	assert.EqualValues(t, "def", g.Hint("123", "abc"))
-	g.Delete("123", "abc", "def")
-	assert.EqualValues(t, shrug, g.Hint("123", "abc"))
+	g.Track(t.Context(), 123, "abc", "def")
+
+	got, _ := g.Hint(t.Context(), 123, "abc")
+	assert.Equal(t, "def", got)
+	g.Delete(t.Context(), 123, "xxx", "def")
+	got, _ = g.Hint(t.Context(), 123, "abc")
+	assert.Equal(t, "def", got)
+	g.Delete(t.Context(), 123, "abc", "xxx")
+	got, _ = g.Hint(t.Context(), 123, "abc")
+	assert.Equal(t, "def", got)
+	g.Delete(t.Context(), 123, "abc", "def")
+	got, _ = g.Hint(t.Context(), 123, "abc")
+	assert.Empty(t, got)
 }

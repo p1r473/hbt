@@ -1,0 +1,46 @@
+name: Lint and Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches:
+      - master
+      - feature/*
+      - bugfix/*
+      - patch/*
+      - refactor/*
+      - chore/*
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          args: --timeout 5m0s
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Running Unit Tests
+        run: go test ./...

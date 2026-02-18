@@ -1,8 +1,9 @@
 module github.com/lzambarda/hbt
 
-go 1.17
+go 1.26
 
 require (
+	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
 )

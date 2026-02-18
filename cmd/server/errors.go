@@ -1,5 +1,4 @@
-//nolint:stylecheck,revive // Not needed.
-package cmd
+package main
 
 import (
 	"errors"

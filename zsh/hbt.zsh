@@ -33,13 +33,20 @@ fi
 function _hbt_end_session() { echo -n "end\n$$" | nc localhost $HBT_PORT ; }
 add-zsh-hook zshexit _hbt_end_session
 
+local cmd=""
+function _hbt_pretrack() {
+  cmd="$1" 
+}
+add-zsh-hook preexec _hbt_pretrack 
+
 function _hbt_track() {
 	# Execute original command but only track it if it was successful
 	local -i code=$?
 	if [ $code -eq 0 ]; then
-		echo -n "track\n$$\n$(pwd)\n$1" | nc localhost $HBT_PORT ;
+		echo -n "track\n$$\n$(pwd)\n$cmd" | nc localhost $HBT_PORT ;
 	fi
 }
+
 add-zsh-hook precmd _hbt_track
 
 # list dir with TAB, when there are only spaces/no text before cursor,
@@ -69,7 +76,7 @@ bindkey '^?' _hbt_clear
 
 function _hbt_delsuggestion () {
 	if [[ ! -z ${POSTDISPLAY} ]]; then
-		$(echo -n "del\n$$\n$(pwd)\n$1" | nc localhost $HBT_PORT)
+		$(echo -n "del\n$$\n$(pwd)\n${POSTDISPLAY}" | nc localhost $HBT_PORT)
 		unset POSTDISPLAY
 	else
 		zle delete-char

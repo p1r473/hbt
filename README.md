@@ -1,7 +1,12 @@
 # hbt
 
-A heuristic command suggestion system for zsh.
+A command suggestion system for zsh, using SQLite as a persistence layer. 
 TAB anywhere and you can cycle through the commands you previously ran in the same location.
+DEL on a visible suggestion to delete it from memory.
+
+That's it!
+
+_I forgor what HBT stands for, so you can make up your own acronym..._
 
 ## Rationale
 
@@ -65,9 +70,11 @@ Given that the functions use zsh hooks which are executed at every command, I di
 
 - [x] Naive graph implementation
 - [x] Create custom marshaller which supports cycles and correctly restores pointers
+- [x] Implement SQLite DB for easier data access and storage.
 
   This hasn't really been done the proper way, but it works.
 
+- [ ] Cross-compilation via GitHub Actions
 - [x] Tests
 - [x] Migrate what can be migrated from zsh to go
 - [ ] Benchmarking

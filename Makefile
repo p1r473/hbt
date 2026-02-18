@@ -4,11 +4,11 @@ help: ## Show this
 
 NAME:=hbtsrv
 build_tag:=$(shell git describe --tags 2> /dev/null)
-BUILDFLAGS:="-s -w -X github.com/lzambarda/hbt/internal.Version=$(build_tag)"
+BUILDFLAGS:="-s -w -X github.com/lzambarda/hbt/internal/config.Version=$(build_tag)"
 
 .PHONY: dependencies
 dependencies: ## Install dependencies requried for development operations.
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@go mod tidy
 
 
@@ -20,8 +20,8 @@ lint:
 
 .PHONY: build
 build:
-	@GOOS=darwin GOARCH=amd64 go build -ldflags $(BUILDFLAGS) -o ./bin/darwin/$(NAME) ./main.go
-	@GOOS=linux GOARCH=amd64 go build -ldflags $(BUILDFLAGS) -o bin/linux/$(NAME) ./main.go
+	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -ldflags $(BUILDFLAGS) -o ./bin/darwin/$(NAME) ./cmd/server/*.go
+	@GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags $(BUILDFLAGS) -o bin/linux/$(NAME) ./cmd/server/*.go
 
 
 .PHONY: build_assets

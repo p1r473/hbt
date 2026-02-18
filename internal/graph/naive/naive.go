@@ -1,21 +1,22 @@
 // Package naive contains a simplistic implementation of a suggestion graph.
 // Nothing too fancy.
 //
-//nolint:godox // Okay for now.
+// nolint // En route to deprecation anyways.
 package naive
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"sort"
 	"strings"
 
-	"github.com/lzambarda/hbt/internal"
+	"github.com/lzambarda/hbt/internal/config"
 )
 
-//nolint:govet // Prefer this order of memory efficiency.
 type edge struct {
 	Hits int   `json:"c"`
 	From *node `json:"f"`
@@ -24,7 +25,7 @@ type edge struct {
 
 // cmd -> node.
 //
-//nolint:govet // Prefer this order of memory efficiency.
+
 type node struct {
 	id    int
 	edges map[string]*edge
@@ -44,21 +45,26 @@ func (n *node) getSortedEdges() []*cmdEdge {
 	for cmd, e := range n.edges {
 		sorted = append(sorted, &cmdEdge{cmd, e.Hits})
 	}
+
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].score > sorted[j].score
 	})
+
 	return sorted
 }
 
 func (n *node) getBestCommand() string {
 	max := -1
+
 	var best string
+
 	for cmd, e := range n.edges {
 		if e.Hits > max {
 			max = e.Hits
 			best = cmd
 		}
 	}
+
 	return best
 }
 
@@ -73,11 +79,15 @@ func (w walker) progress(next *walkerNode) walker {
 	if len(w) == 0 {
 		return append(w, next)
 	}
+
 	w[0].lastEdge.To = next.lastNode
+
 	max := len(w)
+
 	if len(w) == cap(w) {
 		max = cap(w)
 	}
+
 	return append([]*walkerNode{next}, w[:max]...)
 }
 
@@ -85,7 +95,7 @@ func (w walker) progress(next *walkerNode) walker {
 // The zero value of this structure cannot be used. Please use NewGraph to
 // obtain a valid one.
 //
-//nolint:govet // Prefer this order of memory efficiency.
+
 type Graph struct {
 	// wd -> node
 	// Must assess how efficient this implementation is.
@@ -95,11 +105,11 @@ type Graph struct {
 	// How many path components (directories) are at least needed to be a match
 	// of a different path.
 	// This value should be a positive integer.
-	MinCommonPath int               `json:"min_common_path"`
-	walkers       map[string]walker // not saved to file
+	MinCommonPath int            `json:"min_common_path"`
+	walkers       map[int]walker // not saved to file
 	// For each session, keep an internal counter to cycle through the possible
 	// suggestions.
-	suggestionState map[string]int
+	suggestionState map[int]int
 }
 
 // NewGraph returns usable Graph instances.
@@ -108,12 +118,13 @@ func NewGraph(maxWalkerHistory, minCommonPath int) *Graph {
 	if minCommonPath <= 0 {
 		minCommonPath = 1
 	}
+
 	return &Graph{
 		Nodes:            map[string]*node{},
 		MaxWalkerHistory: maxWalkerHistory,
 		MinCommonPath:    minCommonPath,
-		walkers:          map[string]walker{},
-		suggestionState:  map[string]int{},
+		walkers:          map[int]walker{},
+		suggestionState:  map[int]int{},
 	}
 }
 
@@ -129,12 +140,13 @@ func (g *Graph) newNode(wd, cmd string, parent *node) (*node, *edge) {
 	}
 	n.edges[cmd] = e
 	g.Nodes[wd] = n
+
 	return n, e
 }
 
 // Track adds to the graph the command cmd performed at path wd by the id
 // user/process.
-func (g *Graph) Track(id, wd, cmd string) {
+func (g *Graph) Track(_ context.Context, id int, wd, cmd string) error {
 	// Check if this is a new session we are creating
 	walker := g.walkers[id]
 	if walker == nil {
@@ -150,8 +162,10 @@ func (g *Graph) Track(id, wd, cmd string) {
 			lastNode: n,
 			lastEdge: e,
 		})
-		return
+
+		return nil
 	}
+
 	n := g.Nodes[wd]
 	// Now check if there is a known edge with the run command
 	if _, ok := n.edges[cmd]; !ok {
@@ -167,8 +181,10 @@ func (g *Graph) Track(id, wd, cmd string) {
 			lastNode: n,
 			lastEdge: e,
 		})
-		return
+
+		return nil
 	}
+
 	n.edges[cmd].Hits++
 	// Reference to itself
 	if len(walker) == 0 {
@@ -179,9 +195,9 @@ func (g *Graph) Track(id, wd, cmd string) {
 	} else {
 		g.walkers[id] = walker.progress(walker[0])
 	}
-}
 
-const shrug = "¯\\_(ツ)_/¯"
+	return nil
+}
 
 func (g *Graph) findNode(wd string) *node {
 	if n, ok := g.Nodes[wd]; ok {
@@ -189,6 +205,7 @@ func (g *Graph) findNode(wd string) *node {
 	}
 	// Try to see if we have a node with a similar structure
 	wd = strings.TrimPrefix(wd, "/")
+
 	pathComponents := strings.Split(wd, "/")
 	if len(pathComponents) > g.MinCommonPath {
 		// Reduce the path to the common path and check again
@@ -199,12 +216,13 @@ func (g *Graph) findNode(wd string) *node {
 }
 
 // Hint returns the next suggestion for user/process id at path wd.
-func (g *Graph) Hint(id, wd string) string {
+func (g *Graph) Hint(_ context.Context, id int, wd string) (string, error) {
 	n := g.findNode(wd)
 	if n == nil {
 		// Reset suggestion for session
 		g.suggestionState[id] = 0
-		return shrug
+
+		return "", nil
 	}
 	// TODO: maybe we could use the walker to get the next action???
 	// walker := g.walkers[id]
@@ -215,47 +233,62 @@ func (g *Graph) Hint(id, wd string) string {
 	if len(n.edges) == 0 {
 		// Reset suggestion for session
 		g.suggestionState[id] = 0
-		return shrug
+
+		return "", nil
 	}
+
 	sorted := n.getSortedEdges()
 	bestIndex := g.suggestionState[id] % len(n.edges)
-	if internal.Debug {
-		fmt.Println("Sorted Edges:")
+
+	if config.Debug {
+		log.Println("Sorted Edges:")
+
 		for i, s := range sorted {
-			fmt.Printf("  [%d] %s\n", i, s)
+			log.Printf("  [%d] %s\n", i, s)
 		}
-		fmt.Printf("Best index %d %% %d = %d\n", g.suggestionState[id], len(n.edges), bestIndex)
+
+		log.Printf("Best index %d %% %d = %d\n", g.suggestionState[id], len(n.edges), bestIndex)
 	}
+
 	best := sorted[bestIndex].cmd
 	if best == "" {
 		// Reset suggestion for session
 		g.suggestionState[id] = 0
-		return shrug
+
+		return "", nil
 	}
+
 	g.suggestionState[id]++
-	return best
+
+	return best, nil
 }
 
 // Delete removes a previously tracked command. It should not return an
 // error.
-func (g *Graph) Delete(id, wd, cmd string) {
+func (g *Graph) Delete(_ context.Context, id int, wd, cmd string) error {
 	n := g.findNode(wd)
 	if n == nil {
-		return
+		return nil
 	}
+
 	if _, ok := n.edges[cmd]; !ok {
-		return
+		return nil
 	}
+
 	delete(n.edges, cmd)
 	// Deleting an edge invalidates the suggestion offset, better to reset it
 	// here.
 	g.suggestionState[id] = 0
+
+	return nil
 }
 
 // End clears a session for user/process id. This is useful to reset a
 // stateful graph.
-func (g *Graph) End(id string) {
+func (g *Graph) End(_ context.Context, id int) error {
 	delete(g.walkers, id)
+
+	return nil
 }
 
 // These structs are what we need to move from a programmer-friendly structure
@@ -271,7 +304,7 @@ type serialisableEdge struct {
 }
 
 // Save serialises the graph to the given file path.
-func (g *Graph) Save(filePath string) error {
+func (g *Graph) Save(_ context.Context, filePath string) error {
 	// We first need to build a model which doesn't contain pointers nor cycles.
 	nodes := make([]*node, len(g.Nodes))
 	sg := serialisableGraph{
@@ -286,6 +319,7 @@ func (g *Graph) Save(filePath string) error {
 	// Second pass, do the same with edges
 	for fromIndex, n := range nodes {
 		sg.Edges[fromIndex] = map[string]serialisableEdge{}
+
 		for cmd, e := range n.edges {
 			se := serialisableEdge{
 				Hits: e.Hits,
@@ -294,30 +328,36 @@ func (g *Graph) Save(filePath string) error {
 			if e.To != nil {
 				se.To = e.To.id
 			}
+
 			sg.Edges[fromIndex][cmd] = se
 		}
 	}
+
 	b, err := json.Marshal(sg)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal: %w", err)
 	}
+
 	return os.WriteFile(filePath, b, os.ModePerm)
 }
 
 // Load initialises the graph with a serialiastion at the give file path.
-func (g *Graph) Load(filePath string) error {
+func (g *Graph) Load(_ context.Context, filePath string) error {
 	b, err := os.ReadFile(filePath) //nolint:gosec // It is okay.
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Nothing to load
 			return nil
 		}
-		return err
+
+		return fmt.Errorf("read file %q: %w", filePath, err)
 	}
+
 	sg := serialisableGraph{}
+
 	err = json.Unmarshal(b, &sg)
 	if err != nil {
-		return err
+		return fmt.Errorf("unmarshal: %w", err)
 	}
 	// Here we must do the opposite, where we start from the serialisable model
 	// and build the programmer-friendly one.
@@ -341,8 +381,10 @@ func (g *Graph) Load(filePath string) error {
 			if se.To != -1 {
 				e.To = g.Nodes[sg.Wds[se.To]]
 			}
+
 			n.edges[cmd] = e
 		}
 	}
+
 	return nil
 }

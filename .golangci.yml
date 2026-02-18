@@ -1,116 +1,137 @@
-linters-settings:
-  govet:
-    settings:
-      printf:
-        funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-    enable:
-      - fieldalignment
-  gocyclo:
-    min-complexity: 15
-  maligned:
-    suggest-new: true
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: UK
-  lll:
-    line-length: 140
-  goimports:
-    local-prefixes: github.com/golangci/golangci-lint
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-  funlen:
-    lines: 100
-    statements: 50
-  godot:
-    capital: true
-  unparam:
-    check-exported: true
-
-issues:
-  # Excluding configuration per-path, per-linter, per-text and per-source
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gosec # security check is not important in tests
-        - dupl # we usualy duplicate code in tests
-        - bodyclose
-        - unparam
-        - errcheck
-        - govet
-  fix: true
-  exclude-use-default: false
-
+version: "2"
 run:
   build-tags:
     - integration
-    - e2e
-  skip-dirs:
-    - model
-    - tmp
-    - bin
-    - scripts
-    - test
   tests: true
-
+  allow-parallel-runners: true
 linters:
-  disable-all: true
-  fast: true
-  enable:
-    - bodyclose
-    - deadcode
+  default: all
+  disable:
     - depguard
-    - dogsled
-    - dupl
-    - durationcheck
-    - errcheck
-    - errorlint
-    - exportloopref
-    - forcetypeassert
-    - gocognit
-    - goconst
-    - gocritic
-    - gocyclo
-    - godot
-    - godox
-    - revive
-    - goprintffuncname
-    - gosec
-    - gosimple
-    - govet
-    - ineffassign
-    - misspell
-    - nakedret
-    - nestif
-    - nilerr
-    - prealloc
-    - rowserrcheck
-    - sqlclosecheck
-    - staticcheck
-    - structcheck
-    - stylecheck
-    - tparallel
-    - typecheck
-    - unconvert
-    - unparam
-    - unused
-    - varcheck
-    - wastedassign
-    - whitespace
-
-# golangci.com configuration
-# https://github.com/golangci/golangci/wiki/Configuration
-service:
-  golangci-lint-version: 1.43.x
-  prepare:
-    - echo "here I can run custom commands, but no preparation needed for this repo"
+    - exhaustruct
+    - funcorder
+    - gochecknoinits
+    - noinlineerr # Error handling in Go already takes 3 lines, why would we want to make it 4 ???
+  settings:
+    cyclop:
+      max-complexity: 15
+    funlen:
+      lines: 110
+      statements: 70
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    gocyclo:
+      min-complexity: 15
+    godot:
+      capital: true
+    gomoddirectives:
+      replace-allow-list:
+        - gopkg.in/mattn/go-runewidth.v0
+        - gopkg.in/mattn/go-isatty.v0
+        - gopkg.in/mattn/go-colorable.v0
+    govet:
+      disable:
+        - fieldalignment
+      settings:
+        printf:
+          funcs:
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+    lll:
+      line-length: 140
+    misspell:
+      locale: UK
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+    unparam:
+      check-exported: true
+    wrapcheck:
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+        - status.Error(
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - bodyclose
+          - dupl
+          - dupword
+          - errcheck
+          - errchkjson
+          - forcetypeassert
+          - funlen
+          - gochecknoglobals
+          - goconst
+          - gocritic
+          - gosec
+          - govet
+          - lll
+          - maintidx
+          - revive
+          - unparam
+          - varnamelen
+          - wrapcheck
+        path: _test\.go
+      - linters:
+          - errcheck
+        path: testing
+      - linters:
+          - cyclop
+        path: (.+)_test\.go
+    paths:
+      - model
+      - tmp
+      - bin
+      - scripts
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  new-from-rev: 3a9c0e0a6e0854ca0b30f4a82cf6113ee53e443d
+  fix: true
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule
+      custom-order: true
+    goimports:
+      local-prefixes:
+        - github.com/lzambarda/hbt
+  exclusions:
+    generated: lax
+    paths:
+      - model
+      - tmp
+      - bin
+      - scripts
+      - third_party$
+      - builtin$
+      - examples$
